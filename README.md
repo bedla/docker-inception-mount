@@ -1,26 +1,28 @@
-# Running Docker in Docker with mounts from Host filesystem using Windows
+# Running Docker in Docker with shared Volume mounts from Host filesystem using Windows (and WSL)
 
-In this article we will show mounting Host filesystem and running Docker comment from already started Docker container behaves when running solely from Windows 
-or using [WSL](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux).
+In this article we will show mounting shared Host filesystem and running Docker container from already started Docker container (Docker in Docker).
+We will walk through running solely from Windows command line or using [WSL](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux) terminal.
 
-Later, based on observations, we will use this knowledge to run example application.
+Later, based on observations, we will use this knowledge to run example Kotlin + SpringBoot + Testcontainers application.
 
-_Note: During investigation I was getting misleading error messages or behavior and because I have [Docker Pro plan](https://www.docker.com/pricing/), I had some discussions with their support.
-Some of the output and knowledge is based on those discussions._
+_Note: During investigation I was getting misleading error messages or behavior. Because I have [Docker Pro plan](https://www.docker.com/pricing/), I had some discussions with their support.
+Some of the output and knowledge is based on those discussions with support team._
 
 ## Use-case description
 
 Our use-case is following:
-- Start Docker container and mount Host directory to be able to share files
-- From started container start another Docker container and mount same Host directory to exchange the files.
-- At the end to be able to:
+- Start Docker Container and mount Host directory to be able to share files.
+- From started Container start another Container and mount same Host directory to be able to exchange some files.
+- At the end we have to be able to:
   - see same files from Host in both containers.
-  - when file is created in one container, it is possible to access this file from another container, and from the host.
-- Because we are running Docker command from running container, we have to be able to connect to Docker daemon. 
+  - file created in one Container is accessible from another Container (and from the Host).
+- Because we are running Docker command from running Container, we have to be able to connect to Docker daemon.
+
+![Docker shared mount dind Diagram.drawio.png](Docker%20shared%20mount%20dind%20Diagram.drawio.png)
 
 ## [WORKING] Mounting from Windows command line
 
-Docker Desktop primarily support Window ecosystem. That's why use-case above works perfectly. 
+Docker Desktop primarily supports Windows ecosystem. That's why use-case above works perfectly. 
 
 1. We create and verify file in the Host directory
 ```
@@ -43,7 +45,7 @@ total 0
 -rwxrwxrwx    1 root     root             6 Jan  4 12:51 file.txt
 ```
 
-4. Create new file `docker1-file.txt` in shared directory, and list files to verify its creation.
+4. Create new file `docker1-file.txt` in container's shared directory, and list files to verify its creation.
 ```
 docker1> / # echo xxx > /app/docker1-file.txt
 
@@ -59,9 +61,9 @@ total 0
 docker1> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v c:\\Temp\\my-project-1:/inception docker:cli sh
 ```
 
-6. Verify that files from host are properly mounted using `ls` command
+6. Verify that files from the Host are properly mounted using `ls` command.
   - We expect there that there is `file.txt` from Host file-system.
-  - And also file `docker1-file.txt` created inside first container.
+  - And also expect file `docker1-file.txt`, has been created inside first container.
 ```
 docker2> / # ls -l /inception
 total 0
@@ -87,8 +89,8 @@ docker2> exit
 
 9. Verify that files are still present using `ls` command
 - We expect there that there is `file.txt` from Host file-system.
-- And also file `docker1-file.txt` created inside first container.
-- And also file `docker2-file.txt` created inside second container.
+- And also file `docker1-file.txt`, has been created inside first container.
+- And also file `docker2-file.txt`, has been created inside second container.
 ```
 docker1> / # ls -l /app
 total 0
@@ -104,8 +106,8 @@ docker1> exit
 
 11. Verify that files are still present using `dir` command
 - We expect there that there is `file.txt` from Host file-system.
-- And also file `docker1-file.txt` created inside first container.
-- And also file `docker2-file.txt` created inside second container.
+- And also file `docker1-file.txt`, has been created inside first container.
+- And also file `docker2-file.txt`, has been created inside second container.
 ```
 host> dir c:\Temp\my-project-1
 04.01.2026  13:53                 4 docker1-file.txt
@@ -113,15 +115,16 @@ host> dir c:\Temp\my-project-1
 04.01.2026  13:51                 6 file.txt
 ```
 
+_Note: From above you can see that at integration with Windows host works perfectly._
+
 ## [FAILED] Mounting WSL created directory
 
-In this example we will use WSL shell (installed default Ubuntu distribution) and assume that we are sharing WSL Host's directory `/tmp/my-project-2`. 
+In this example we will use WSL shell (with installed default Ubuntu distribution) and assume that we are sharing WSL Host's directory `/tmp/my-project-2`. 
 
 1. We create file in the Host directory.
    - Mind that this directory and file is created in WSL's file-system.
    - It is not created in Windows Host's file-system.
-   - We might expect that based on `mkdir /tmp/my-project-2` command,
-     - the `c:/tmp/my-project-2` directory might be created -> this assumption is wrong.  
+   - We might expect that based on `mkdir /tmp/my-project-2` command, the `c:/tmp/my-project-2` directory might be created -> this assumption is wrong.  
 ```
 host-wsl> mkdir /tmp/my-project-2
 host-wsl> echo aaa > /tmp/my-project-2/file.txt
@@ -162,7 +165,8 @@ docker1> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v /tmp/m
 ```
 
 6. Verify that files from host are properly mounted using `ls` command.
-  - As you can see we are missing `file.txt` and `docker1-file.txt` files!
+  - As you can see that we are missing `file.txt` and `docker1-file.txt` files!
+  - Based on Docker support, this feature is not supported.
 ```
 docker2> / # ls -l /inception
 total 0
@@ -184,8 +188,9 @@ docker2> exit
 
 9. Verify that files are still present using `ls` command
 - We expect there that there is `file.txt` from Host file-system.
-- And also file `docker1-file.txt` created inside first container.
-- BUT we are missing file `docker2-file.txt` created inside second container!
+- And also file `docker1-file.txt` has been created inside first container.
+- BUT we are missing file `docker2-file.txt`!
+  - This file was created inside second container!
 ```
 docker1> / # ls -l /app
 total 8
@@ -200,8 +205,9 @@ docker1> exit
 
 11. Verify that files are still present using `dir` command
 - We expect there that there is `file.txt` from Host file-system.
-- And also file `docker1-file.txt` created inside first container.
-- BUT we are missing file `docker2-file.txt` created inside second container!
+- And also file `docker1-file.txt` that has been created inside first container.
+- BUT we are missing file `docker2-file.txt`
+  - We created it inside second container!
 ```
 host-wsl> ls -l /tmp/my-project-2
 total 8
@@ -216,10 +222,10 @@ host> dir \\wsl.localhost\Ubuntu\tmp\my-project-2\
 04.01.2026  17:48                 4 docker1-file.txt
 ```
 
-## [FAILED/PARTIALLY-WORKING] Mounting WSL directory originally created at Windows file-system 
+## [FAILED / WORKING with hack] Mounting WSL directory originally created at Windows file-system 
 
 In this example we will use WSL shell (installed default Ubuntu distribution).
-Directory to share `c:\temp\my-project-3` is created at Windows file-system and shared/mounbted by WSL into `/mnt/c/temp/my-project-3` (standard WSL behavior).
+Directory to share `c:\temp\my-project-3` is created at Windows file-system and shared/mounted by WSL into `/mnt/c/temp/my-project-3` directory (standard WSL behavior).
 
 1. We create and verify file in the Host directory
 ```
@@ -229,7 +235,7 @@ host-win> dir c:\temp\my-project-3
 04.01.2026  18:56                 6 file.txt
 ```
 
-2. Open WSL terminal and verify file properly auto-mounted/shared.
+2. Open WSL terminal and verify file and directory are properly auto-mounted/shared.
 ```
 host-wsl> ls -l /mnt/c/temp/my-project-3
 total 0
@@ -237,7 +243,7 @@ total 0
 ```
 
 3. Now assume that we are talking to Docker daemon running at Windows filesystem and mount volume using Windows path `c:/temp/my-project-3`.
-   - This will rise expected **ERROR**, because malformed (two colons `:` separate mount mode) format for the Docker `run` command running at WSL. 
+   - This will rise expected **ERROR**, because we use malformed format (two colons `:` separate mount mode) for the Docker `run` command running at WSL. 
 ```
 host-wsl> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v c:/temp/my-project-3:/app docker:cli sh
 
@@ -276,7 +282,7 @@ docker1> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v /mnt/c
 ```
 
 8. Verify that files from host are properly mounted using `ls` command.
-- As you can see we are missing `file.txt` and `docker1-file.txt` files!
+- As you can see we are missing both `file.txt` and `docker1-file.txt` files!
 ```
 docker2> / # ls -l /inception
 total 0
@@ -298,8 +304,8 @@ docker2> exit
 
 11. Verify that files are still present using `ls` command
 - We expect there that there is `file.txt` from Host file-system.
-- And also file `docker1-file.txt` created inside first container.
-- BUT we are missing file `docker2-file.txt` created inside second container!
+- And also file `docker1-file.txt`, that has been created inside first container.
+- BUT we are missing file `docker2-file.txt`, we created inside second container!
 ```
 docker1> / # ls -l /app
 total 0
@@ -314,8 +320,8 @@ docker1> exit
 
 13. Verify that files are still present using `ls` command
 - We expect there that there is `file.txt` from Host file-system.
-- And also file `docker1-file.txt` created inside first container.
-- BUT we are missing file `docker2-file.txt` created inside second container!
+- And also file `docker1-file.txt` has been created inside first container.
+- BUT we are missing file `docker2-file.txt` we created inside second container!
 ```
 host-wsl> ls -l /mnt/c/temp/my-project-3
 total 0
@@ -330,9 +336,9 @@ host> dir \\wsl.localhost\docker-desktop\mnt\c\temp\my-project-3\
 04.01.2026  18:59                 4 docker2-file.txt
 ```
 
-15a. With this knowledge, let's test if mounting second container to `/mnt/host/c/temp/my-project-3` directory will work.
+(**HACK**) 15a. With this knowledge, let's test if mounting second container to `/mnt/host/c/temp/my-project-3` directory will work.
 
-15b. Start first container and verify files still presented
+(**HACK**) 15b. Start first container and verify files still presented.
     - We expect files `docker1-file.txt` and `file.txt` to be presented.
 ```
 host-wsl> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v /mnt/c/temp/my-project-3:/app docker:cli sh
@@ -343,14 +349,14 @@ total 0
 -rwxrwxrwx    1 1000     1000             6 Jan  4 17:56 file.txt
 ```
 
-15c. Start second container from frist container, but with modified Host path `/mnt/host/c/temp/my-project-3`
+(**HACK**) 15c. Start second container from first container, but with modified Host path `/mnt/host/c/temp/my-project-3`.
     - Mind that there is prefix `/mnt/host` used.
 ```
 docker1> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v /mnt/host/c/temp/my-project-3:/inception docker:cli sh
 ```
 
-15d. Verify content of the `/inception` directory and create new test file `docker3-file.txt`.
-    - As you can see we are able to see files from the WSL Host -> this is unexpected!
+(**HACK**) 15d. Verify content of the `/inception` directory and create new test file `docker3-file.txt`.
+    - As you can see we are able to see files from the WSL Host -> this is unexpected and is implementation detail!
     - Lastly verify that third file has been created using `ls` command.
 ```
 docker2> / # ls -l /inception
@@ -367,12 +373,12 @@ total 0
 -rwxrwxrwx    1 root     root             6 Jan  4 17:56 file.txt
 ```
 
-15e. Exit second container, and return to first container's shell.
+(**HACK**) 15e. Exit second container, and return to first container's shell.
 ```
 docker2> exit
 ```
 
-15f. Verify that `docker3-file.txt` file is now shared with first container.
+(**HACK**) 15f. Verify that `docker3-file.txt` file is now shared with first container.
     - Mind that owner is `root` user.
 ```
 docker1> / # ls -l /app
@@ -382,16 +388,16 @@ total 0
 -rwxrwxrwx    1 1000     1000             6 Jan  4 17:56 file.txt
 ```
 
-15g. Exit first container, and return to Host's shell.
+(**HACK**) 15g. Exit first container, and return to Host's shell.
 ```
 docker1> exit
 ```
 
-15h. Verify that files are still present using `ls` command
+(**HACK**) 15h. Verify that files are still present using `ls` command
     - We expect there that there is `file.txt` from Host file-system.
-    - And also file `docker1-file.txt` created inside first container.
-    - We are missing file `docker2-file.txt` created inside second container!
-    - **BUT we can see file** `docker3-file.txt` created inside third container!
+    - And also file `docker1-file.txt` has been created inside first container.
+    - We are missing file `docker2-file.txt` we created inside second container!
+    - **BUT we can see file** `docker3-file.txt` that we created inside third container!
         - Mind that owner is `root` user.
 ```
 host-wsl>  ls -l /mnt/c/temp/my-project-3
@@ -401,7 +407,7 @@ total 0
 -rwxrwxrwx 1 bedla bedla 6 Jan  4 18:56 file.txt
 ```
 
-15i. Verify from Windows command line that we can see the files.
+(**HACK**) 15i. Verify from Windows command line that we can see the files.
 ```
 host> dir c:\temp\my-project-3
 04.01.2026  18:58                 4 docker1-file.txt
@@ -409,12 +415,15 @@ host> dir c:\temp\my-project-3
 04.01.2026  18:56                 6 file.txt
 ```
 
-## [FAILED/WORKING] Mounting WSL directory originally created at Windows file-system without `DOCKER_HOST` environment variable
+_Note: Hack obove is implementation detail od WSL integration in Windows, not an actual feature that we should use._
+
+## [FAILED/WORKING with Docker socket] Mounting WSL directory originally created at Windows file-system without `DOCKER_HOST` environment variable
 
 In this example we will use WSL shell (installed default Ubuntu distribution).
 Directory to share `c:\temp\my-project-4` is created at Windows file-system and shared/mounbted by WSL into `/mnt/c/temp/my-project-4` (standard WSL behavior).
 Based on feedback from Docker support we will try not to use `DOCKER_HOST` environment variable.
-Surprise is that when we use Docker socket sharing works.
+
+(**HACK**): Surprise is that when we use Docker socket sharing works.
 
 1. We create and verify file in the Host directory
 ```
@@ -456,8 +465,8 @@ total 0
 
 7. Now try to start second container without `DOCKER_HOST` environment variable
    - As we expected we are not able to connect to Host Docker daemon.
-   - See all variants with `docker:cli`, `docker`, and `docker:dind` images.
-   - Also mind that we tried to start second container with connection to Docker socker at `/var/run/docker.sock`
+     - All variants with `docker:cli`, `docker`, and `docker:dind` images are not working -> this is expected.
+   - Also mind that we tried to start second container with connection to the Docker socket at `/var/run/docker.sock`.
 ```
 docker1> / # docker run -it -v /mnt/c/temp/my-project-4:/inception docker:cli sh
 failed to connect to the docker API at tcp://docker:2375: lookup docker on 192.168.65.7:53: no such host
@@ -477,14 +486,14 @@ failed to connect to the docker API at tcp://docker:2375: lookup docker on 192.1
 docker1> exit
 ```
 
-8a. Based on error above let's start from beginning, but now mount Docker host's socket to the first container
-    - Option `-v /var/run/docker.sock:/var/run/docker.sock` does the trick
-    - With this option Docker commands run inside first containers should be connected to Host's Docker daemon.
+(**docker.sock**) 8a. Based on error above let's start from beginning, but **now mount Docker host's socket to the first container**.
+    - Option `-v /var/run/docker.sock:/var/run/docker.sock` does the trick.
+    - With this option Docker running inside first container should be connected to the Host's Docker daemon.
 ```
 host-wsl> docker run -it -v /mnt/c/temp/my-project-4:/app -v /var/run/docker.sock:/var/run/docker.sock docker:cli sh
 ```
 
-8b. Verify mounted files into first container. And create new file `docker3-file.txt` for this freshly started container.  
+(**docker.sock**) 8b. Verify mounted files into first container. And create new file `docker3-file.txt` for this freshly started container.  
 ```
 docker1> / # ls -l /app
 total 0
@@ -500,14 +509,19 @@ total 0
 -rwxrwxrwx    1 1000     1000             6 Jan  4 19:09 file.txt
 ```
 
-8c. Start second container
-    - We can see that it is started with connection to Docker host's socket
+(**docker.sock**) 8c. Start second container.
+    - We can see that it is started with connection to Docker host's socket.
+    - Mounting Docker socket inside first container, means that we are connected do Host's daemon.
+    - This is alternative connection method compared to `DOCKER_HOST` environment variable.
 ```
 docker1> docker run -it -v /mnt/c/temp/my-project-4:/inception docker:cli sh
 ```
 
-8d. Check if files are properly mounted
-    - Surprise is that they are mounted, and we can see them in `/inception` directory. 
+_Note: Because we are not planning to run `docker` commands from second container, there is no need to mount Host daemon's socket._
+
+(**docker.sock**) 8d. Check if files are properly mounted.
+    - Surprise is that they are mounted, and we can see them in `/inception` directory.
+    - It seems that it is because of alternative Daemon connection method.
 ```
 docker2> / # ls -l /inception
 total 0
@@ -516,7 +530,7 @@ total 0
 -rwxrwxrwx    1 1000     1000             6 Jan  4 19:09 file.txt
 ```
 
-8e. Create new file `docker4-file.txt` to be shared with host, and exit second container.
+(**docker.sock**) 8e. Create new file `docker4-file.txt` to be shared with host, and exit second container.
 ```
 docker2> / # echo xxx > /inception/docker4-file.txt
 
@@ -530,7 +544,7 @@ total 0
 docker2> exit
 ```
 
-8f. Verify that we are able to see new second container file `docker4-file`, and exit first container.  
+(**docker.sock**) 8f. Verify that we are able to see new second container's file `docker4-file.txt`, and exit first container.  
 ```
 docker1> / # ls -l /app
 total 0
@@ -542,7 +556,8 @@ total 0
 docker1> exit
 ```
 
-8g. Verify in WSL terminal that we are able to see all file created inside containers.
+(**docker.sock**) 8g. Verify in WSL terminal that we are able to see all file created inside containers.
+    - Mind the `docker4-file.txt` file.
 ```
 host-wsl> ls -l /mnt/c/temp/my-project-4
 total 0
@@ -552,7 +567,8 @@ total 0
 -rwxrwxrwx 1 bedla bedla 6 Jan  4 20:09 file.txt
 ```
 
-8h. And same verification from Windows command line.
+(**docker.sock**) 8h. And same verification from Windows command line.
+    - Also we are able to see `docker4-file.txt` file here.
 ```
 host-win> dir c:\temp\my-project-4
 04.01.2026  20:10                 4 docker1-file.txt
@@ -568,7 +584,7 @@ Based on support feedback we will show how to use Named Volumes to share data be
 _Note: It does not matter if we use WSL terminal or Windows command line._
 
 1. Create Named Volume with name `my-data`.
-   - and verify that it was correctly created. 
+   - and verify that it was created correctly. 
 ```
 host-wsl> docker volume create my-data
 my-data
@@ -588,12 +604,12 @@ host-wsl> docker volume inspect my-data
 ```
 _Note: Mind that data are stored in the `/var/lib/docker/volumes/my-data/_data` directory. BUT this directory is not inside WSL as we will show later._
 
-2. Start First container with Named Volume `my-data` and share it as `/app` directory inside container.
+2. Start first container with Named volume `my-data` and share it as `/app` directory inside container.
 ```
 host-wsl> docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v my-data:/app docker:cli sh
 ```
 
-3. Check that volume is empty
+3. Check that volume is empty.
 ```
 docker1> / # ls -l /app
 total 0
@@ -608,12 +624,12 @@ total 4
 -rw-r--r--    1 root     root             4 Jan  4 19:43 docker1-file.txt
 ```
 
-5. Start Second container from First container with Named Volume `my-data` and share it as `/inception` directory inside container.
+5. Start second container from first container with Named volume `my-data` and share it as `/inception` directory inside container.
 ```
 docker1> / # docker run -it -e DOCKER_HOST=tcp://host.docker.internal:2375 -v my-data:/inception docker:cli sh
 ```
 
-6. Check that file `docker1-file.txt` from First container is shared with Second container.
+6. Check that file `docker1-file.txt` from first container is shared with second container.
 ```
 docker2> / # ls -l /inception
 total 4
@@ -630,12 +646,12 @@ total 8
 -rw-r--r--    1 root     root             4 Jan  4 19:44 docker2-file.txt
 ```
 
-8. Exit Second container, and return to First container's shell.
+8. Exit second container, and return to first container's shell.
 ```
 docker2> exit
 ```
 
-9. Verify that file from Second container is visible for First container. 
+9. Verify that file from second container is visible for first container. 
 ```
 docker1> / # ls -l /app
 total 8
@@ -681,6 +697,8 @@ dir \\wsl.localhost\docker-desktop\tmp\docker-desktop-root\var\lib\docker\volume
 04.01.2026  20:44                 4 docker2-file.txt
 ```
 
+_Note: If we want to extract data from Named volume we should use commands similar to following ones https://docs.docker.com/engine/storage/volumes/#back-up-a-volume._
+
 ## [FAILED] Using WSL terminal with Windows path to start container
 
 This use-case shows how WSL behaves when we use Windows paths for Volume mounts.
@@ -716,7 +734,8 @@ Run 'docker run --help' for more information
 
 - Both error are because in WSL Docker command expect that:
   - Syntax is `docker run -v [<volume-name>:]<mount-path>[:opts]`.
-  - Two colons `:` separating options of the Volume mount
-  - In our case `mode` is read as `/app` -> invalid value
-  - You can see details in the documentation here https://docs.docker.com/engine/storage/volumes/#options-for---volume
-- From Windows command line it works, because Docker Desktop is smart enough to know that `c:\` is not colon separator, but beginning of the Windows path.
+  - Two colons `:` separating options of the Volume mount.
+  - In our case `mode` is read as `/app` -> invalid value.
+  - You can see details in the documentation here https://docs.docker.com/engine/storage/volumes/#options-for---volume.
+
+_Note: From Windows command line it works, because Docker Desktop is smart enough to know that `c:\` is not colon separator, but beginning of the Windows path._

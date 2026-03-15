@@ -84,20 +84,7 @@ open class ExecutorContainer(
     }
 
     override fun containerIsStarted(containerInfo: InspectContainerResponse?) {
-
-        await atMost 5.seconds withPollInterval 500.milliseconds until {
-            val status = dockerClient.inspectContainerCmd(containerInfo?.id!!).exec().state.status
-            logger.warn("Polling for container {} state.status: {}", image, status)
-            status == "exited"
-        }
-
-        dockerClient.inspectContainerCmd(containerInfo?.id!!).exec()!!.run {
-            val exitCode = this.state?.exitCodeLong
-            if (exitCode != 0L) {
-                logger.error("Error during container start, state is: {}", this.state)
-                throw IllegalStateException("Container exited with error $exitCode")
-            }
-        }
+        containerInfo!!.waitAndCheckContainerStartState(dockerClient, image, logger)
     }
 
     data class ConsoleOutMount(

@@ -41,7 +41,7 @@ class MyBusinessLogicProcessor(
             add(
                 buildString {
                     add("(")
-                    add("echo 'output-${OffsetDateTime.now()}'")
+                    add("echo 'output-${OffsetDateTime.now()}-end'")
                     if (inputFileContext?.containerInputFile != null) {
                         add(" && cat ${inputFileContext.containerInputFile.toLinuxPathStr()}")
                     }

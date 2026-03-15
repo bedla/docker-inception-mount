@@ -22,6 +22,40 @@ import java.nio.file.Path
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+sealed interface WorkingDirectories
+
+data class NamedVolumeWorkingDirectories(
+    val namedVolume: NamedVolume,
+    // work-dir vytvorene uvnitr main containeru
+    val mainContainerWorkDir: Path,
+    // kde je out-dir v main containeru, kam se kopiruje vystup z analyzy
+    val mainContainerOutputSubDir: ContainerUuidString,
+    // kde se ve Volume nachazi out-dir
+    val volumeOutputDir: ContainerUuidString,
+    // pod jakou cestou je videt Volume v containeru
+    val mountedVolumeBaseDir: Path,
+) : WorkingDirectories
+
+data class HostWorkingDirectories(
+    // temp work-dir
+    val workDir: Path,
+    // kde je out-dir na hostovi, kam se kopiruje vystup z analyzy
+    val subDirOutput: ContainerUuidString,
+    // kde uvnitr containeru maji byt vystupni soubory
+    val mountedOutputDir: Path,
+) : WorkingDirectories
+
+data class NamedVolume(
+    val name: String
+)
+
+typealias ContainerUuidString = String
+
+fun ContainerUuidString.interpolate(containerUuid: Uuid): String {
+    return this.replace(containerUuidKey, containerUuid.toString())
+}
+
+const val containerUuidKey = "<containerUuid>"
 
 fun DockerClient.copyFileToContainer(transferable: Transferable, containerPath: String, containerId: String) {
     PipedOutputStream().use { pipedOutputStream ->
@@ -98,39 +132,3 @@ fun <T> extractFromVolume(mount: VolumeMount, block: (DockerClient, String) -> T
         block
     )
 }
-
-
-sealed interface WorkingDirectories
-
-data class NamedVolumeWorkingDirectories(
-    val namedVolume: NamedVolume,
-    // work-dir vytvorene uvnitr main containeru
-    val mainContainerWorkDir: Path,
-    // kde je out-dir v main containeru, kam se kopiruje vystup z analyzy
-    val mainContainerOutputSubDir: ContainerUuidString,
-    // kde se ve Volume nachazi out-dir
-    val volumeOutputDir: ContainerUuidString,
-    // pod jakou cestou je videt Volume v containeru
-    val mountedVolumeBaseDir: Path,
-) : WorkingDirectories
-
-data class HostWorkingDirectories(
-    // temp work-dir
-    val workDir: Path,
-    // kde je out-dir na hostovi, kam se kopiruje vystup z analyzy
-    val subDirOutput: ContainerUuidString,
-    // kde uvnitr containeru maji byt vystupni soubory
-    val mountedOutputDir: Path,
-) : WorkingDirectories
-
-data class NamedVolume(
-    val name: String
-)
-
-typealias ContainerUuidString = String
-
-fun ContainerUuidString.interpolate(containerUuid: Uuid): String {
-    return this.replace(containerUuidKey, containerUuid.toString())
-}
-
-const val containerUuidKey = "<containerUuid>"

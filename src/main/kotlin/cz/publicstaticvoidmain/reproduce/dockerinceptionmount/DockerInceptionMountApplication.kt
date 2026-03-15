@@ -40,7 +40,7 @@ class Starter(
         // docker run -v c:\temp\my:/my-out -e DOCKER_HOST=tcp://host.docker.internal:2375 docker.io/library/docker-inception-mount:0.0.1-SNAPSHOT --run-in-docker --output-dir=/my-out
         // docker run -v c:\temp\my:/my-out -v c:\temp\my\input.txt:/my-input/input.txt -e DOCKER_HOST=tcp://host.docker.internal:2375 docker.io/library/docker-inception-mount:0.0.1-SNAPSHOT --run-in-docker --output-dir=/my-out --input-file=/my-input/input.txt
 
-        val outputDir = args.getOptionValues("output-dir")?.first()?.let { Path(it) } ?: error("Missing output directory")
+        val outputDir = args.getOptionValues("output-dir")?.first()?.let { Path(it) } ?: error("Missing output directory in args: optionNames=${args.optionNames}, nonOptionArgs=${args.nonOptionArgs} ")
         val outputFilename = args.getOptionValues("output-filename")?.first() ?: "my-result.txt"
         val inputFile = args.getOptionValues("input-file")?.first()?.let { Path(it) }
 

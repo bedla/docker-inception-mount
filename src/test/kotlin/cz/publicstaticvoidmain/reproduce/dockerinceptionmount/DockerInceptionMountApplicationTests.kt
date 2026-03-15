@@ -4,10 +4,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.boot.runApplication
-import org.springframework.boot.system.JavaVersion
-import org.springframework.util.ClassUtils
-import java.io.Reader
-import java.io.StringReader
 import java.nio.file.Path
 import java.time.OffsetDateTime
 import java.util.function.Consumer
@@ -16,14 +12,6 @@ import kotlin.io.path.createParentDirectories
 import kotlin.io.path.writeText
 
 class DockerInceptionMountApplicationTests {
-    init {
-        println("*** test begin")
-        println(JavaVersion.getJavaVersion())
-        println(ClassUtils.hasMethod(Reader::class.java, "readAllLines"))
-        println(StringReader("xxx").readAllLines())
-        println("*** test end")
-    }
-
     @Test
     fun process(@TempDir tempDir: Path) {
         val inputFile = tempDir.resolve("input").resolve("input.txt")
